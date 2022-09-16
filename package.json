@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "webpack serve --config ./src/client/webpack.dev.js",
+    "build": "webpack --config ./src/client/webpack.common.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -19,6 +20,7 @@
     "webpack-merge": "^5.8.0"
   },
   "dependencies": {
-    "three": "^0.144.0"
+    "three": "^0.144.0",
+    "typescript": "^4.8.3"
   }
 }
