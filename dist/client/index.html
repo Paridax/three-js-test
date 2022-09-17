@@ -3,21 +3,56 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>three.js test</title>
+        <title>Three.js TypeScript Tutorials by Sean Bradley : https://sbcode.net/threejs</title>
         <style>
-            body {
+            @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500&display=swap');
+
+            html, body {
                 overflow: hidden;
                 margin: 0px;
-                background-color: black;
+                font-family: 'Poppins', sans-serif;
             }
-            canvas {
-              display: block;
+
+            #menuPanel {
+                position: absolute;
+                background-color: rgba(0, 0, 0, 0.8);
+                top: 0px;
+                left: 0px;
+                width: 100vw;
+                height: 100vh;
+            }
+
+            /* make a rounded white button that expands on hover */
+            #startButton {
+                background-color: white;
+                border: none;
+                border-radius: 10px;
+                padding: 10px 40px;
+                font-size: 30px;
+                cursor: pointer;
+                transition: all 0.2s ease-out;
+                font-family: 'Poppins', sans-serif;
+                /* translate 1/2 */
+                transform: translate(-50%, -50%);
+                position: relative;
+                top: 50%;
+                left: 50%;
+            }
+
+            #startButton:hover {
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+
+            #centerPanel {
+              color: white;
             }
         </style>
-        <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/ammo.js/2.0.1/ammo.wasm.js"></script> -->
     </head>
 
     <body>
+        <div id="menuPanel">
+          <button id="startButton">Resume</button>
+        </div>
         <script type="module" src="bundle.js"></script>
     </body>
 </html>
