@@ -90,12 +90,12 @@ cubes.forEach((c) => {
 const keys = new Map();
 
 window.addEventListener('keydown', (e) => {
-  keys.set(e.key, true)
+  keys.set(e.key.toLowerCase(), true)
 })
 
 window.addEventListener('keyup', (e) => {
   // remove item from map
-  keys.delete(e.key)
+  keys.delete(e.key.toLowerCase())
 })
 
 let cameraBob = 0
@@ -105,15 +105,26 @@ let zSpeed = 0
 let y = 0
 let ySpeed = 0
 let cameraOffset = 0
+let cameraHeightTarget = cameraHeight
 
 const playerMovement = function(deltaTime: number) {
   deltaTime /= 1000
-  const speed = 100
+  let speed = 100
   const friction = 0.95
 
   let moving = false
   xSpeed = xSpeed * friction
   zSpeed = zSpeed * friction
+
+  // if control key pressed then crouch
+  if (keys.get('shift')) {
+    cameraHeightTarget = 1.2
+    // smoothly shift to crouch height
+    speed *= 0.4
+  } else {
+    cameraHeightTarget = 2
+  }
+  cameraHeight += (cameraHeightTarget - cameraHeight) * 0.1
 
   if (keys.get('w')) {
     xSpeed += speed * deltaTime
@@ -132,12 +143,6 @@ const playerMovement = function(deltaTime: number) {
     moving = true
   }
 
-  // if control key pressed then crouch
-  if (keys.get('Shift')) {
-    cameraHeight = 1.5
-  } else {
-    cameraHeight = 2
-  }
 
   // r to reset
   if (keys.get('r')) {
@@ -154,8 +159,7 @@ const playerMovement = function(deltaTime: number) {
 
   // jump if on ground and space is pressed
   if (keys.get(' ') && y === 0) {
-    ySpeed = 10
-    xSpeed += speed * deltaTime * 25
+    ySpeed = 8 
   }
 
   y += ySpeed * deltaTime
@@ -180,7 +184,7 @@ const playerMovement = function(deltaTime: number) {
     cameraOffset = cameraOffset * 0.999
   }
   console.log(cameraOffset, realSpeed)
-  camera.position.y = cameraHeight + cameraOffset * 0.1 + y
+  camera.position.y = cameraHeight + cameraOffset * 0.06 + y
 }
 
 
