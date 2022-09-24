@@ -74,9 +74,30 @@ const light = new THREE.PointLight(0xffffff, 1, 100)
 light.position.set(0, 10, 0)
 scene.add(light)
 
+const sound = new THREE.Audio(player.listener)
+const footstep = player.audioLoader.load('audio/step2.ogg', function (buffer) {
+  sound.setBuffer(buffer);
+  // lower the bass
+  sound.setLoop(false);
+  sound.setVolume(0.3);
+  sound.duration = 0.2
+});
+
+let stepTimer = 0
+
 const render = function() {
   const delta = global.delta()
   player.update(delta, inputs, cubes)
+  if (player.onground) {
+    // randomize pitch
+    stepTimer += delta * player.realSpeed * 0.5
+    sound.detune = -300 + Math.random() * 600
+    sound.duration = 0.2
+    // play the audio more often if the player is moving faster
+    if (Math.abs(Math.sin(player.walkingTime * 2)) > 0.9 && player.realSpeed > 1) {
+      sound.play()
+    }
+  }
   light.position.set(player.position.x, player.position.y + 10, player.position.z)
   requestAnimationFrame(render)
   renderer.render(scene, player.camera)

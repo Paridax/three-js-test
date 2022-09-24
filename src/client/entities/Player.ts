@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { Points } from 'three'
 import { PointerLockControls } from 'three/examples/jsm/controls/PointerLockControls'
 
+
 // make a player class
 export class Player {
   public controls: PointerLockControls
@@ -19,13 +20,15 @@ export class Player {
   public cameraPos = new THREE.Vector3(0, 0.8, 0)
   private cameraShake = new THREE.Vector3(0, 0, 0)
   private cameraShakeTarget = new THREE.Vector3(0, 0, 0)
-  private walkingTime = 0
+  public walkingTime = 0
 
   private speed = 0.8
   private jumpStrength = 8
   private gravity = 15
   private airControl = 0.1
   private diagonalSpeed = this.speed * 0.7071067811865476
+
+  public realSpeed = 0
 
   public position = new THREE.Vector3(0, 0, 0)
   public velocity = new THREE.Vector3(0, 0, 0)
@@ -39,11 +42,13 @@ export class Player {
     Player.material
   )
 
-  private onground = false
+  public onground = false
   private groundTime = 0
   private airTime = 0
   private spacePressTime = 1
   private spacePressed = false
+  public listener = new THREE.AudioListener()
+  public audioLoader = new THREE.AudioLoader();
 
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene) {
     scene.add(this.playerObject)
@@ -54,6 +59,7 @@ export class Player {
     this.controls = new PointerLockControls(this.camera, renderer.domElement)
     this.renderer = renderer
     this.scene = scene
+    this.camera.add(this.listener)
 
     this.mouseEvents(
       document.getElementById('menuPanel') as HTMLDivElement,
@@ -86,9 +92,6 @@ export class Player {
   // update run every frame
   // delta is the time in seconds since the last update e.g. 0.016
   update(delta: number, inputs: any, blocks: THREE.Mesh[]) {
-    if (!this.locked) {
-      return
-    }
 
     this.movePlayer(delta, inputs, blocks)
     this.playerObject.position.set(this.position.x, this.position.y, this.position.z)
@@ -108,18 +111,24 @@ export class Player {
     let fb = 0
     let lr = 0
 
-    // move player
-    if (inputs.get('w')) {
-      fb += 1
-    }
-    if (inputs.get('s')) {
-      fb -= 1
-    }
-    if (inputs.get('a')) {
-      lr += 1
-    }
-    if (inputs.get('d')) {
-      lr -= 1
+    if (this.locked) {
+      // move player
+      if (inputs.get('w')) {
+        fb += 1
+      }
+      if (inputs.get('s')) {
+        fb -= 1
+      }
+      if (inputs.get('a')) {
+        lr += 1
+      }
+      if (inputs.get('d')) {
+        lr -= 1
+      }
+      // reset button
+      if (inputs.get('r')) {
+        this.resetPlayer()
+      }
     }
 
     if (this.onground) {
@@ -150,20 +159,16 @@ export class Player {
       this.spacePressed = false
     }
     console.log(this.spacePressTime)
-    
+
     const jumpWindow = 0.02
-    const jumpRecharge = 0.02
-    if (this.spacePressTime <= jumpWindow && (this.groundTime < jumpWindow || this.groundTime > jumpRecharge)) {
+    const jumpRecharge = 0.1
+    if(this.spacePressTime < jumpWindow && (this.groundTime < jumpWindow || this.groundTime > jumpRecharge)) {
       if (this.onground) {
         this.velocity.y = this.jumpStrength
         this.spacePressTime += jumpWindow
       }
     }
 
-    // reset button
-    if (inputs.get('r')) {
-      this.resetPlayer()
-    }
 
     // add velocity
     if (this.onground) {
@@ -174,8 +179,24 @@ export class Player {
       this.velocity.z *= airFric
     }
 
-    const realSpeed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.z * this.velocity.z)
-    this.walkingTime += realSpeed * 0.008 * (this.onground ? 1 : 0)
+    this.realSpeed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.z * this.velocity.z)
+    // if the player stops moving, keep adding to walking time until math.sin(walkingTime) = 0
+    if (((!fb && !lr) || !this.onground)) {
+      // find the next time that sin(walkingTime) = 0
+      const nextWalkingStep = Math.ceil(this.walkingTime /Math.PI) * Math.PI
+      const lastWalkingStep = Math.floor(this.walkingTime /Math.PI) * Math.PI
+      // find which is closer
+      const nextWalkingStepDiff = nextWalkingStep - this.walkingTime
+      const lastWalkingStepDiff = this.walkingTime - lastWalkingStep
+
+      if (nextWalkingStepDiff < lastWalkingStepDiff) {
+        this.walkingTime += nextWalkingStepDiff * 20 * delta // 0.007
+      } else {
+        this.walkingTime -= lastWalkingStepDiff * 20 * delta
+      }
+    } else {
+      this.walkingTime += this.realSpeed * 0.008 * (this.onground ? 1 : 0)
+    }
     const scale = 0.1
     // smoothly shift cameraShake to cameraShakeTarget
     this.cameraShake.set(
