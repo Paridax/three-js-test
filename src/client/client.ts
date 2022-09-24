@@ -37,7 +37,7 @@ const cubes: THREE.Mesh[] = []
 for (let i = 0; i < 100; i++) {
   const geo = new THREE.BoxGeometry(
     Math.random() * 4,
-    Math.random() * 16,
+    1 + Math.random() * 3,
     Math.random() * 4
   )
   const mat = new THREE.MeshStandardMaterial({  })

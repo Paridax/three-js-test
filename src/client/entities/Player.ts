@@ -16,6 +16,17 @@ export class Player {
   private static height: number = 1.8
   private static material: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({ color: 0xff00ff, transparent: true, opacity: 0, wireframe: true })
   
+  public cameraPos = new THREE.Vector3(0, 0.8, 0)
+  private cameraShake = new THREE.Vector3(0, 0, 0)
+  private cameraShakeTarget = new THREE.Vector3(0, 0, 0)
+  private walkingTime = 0
+
+  private speed = 0.8
+  private jumpStrength = 8
+  private gravity = 15
+  private airControl = 0.1
+  private diagonalSpeed = this.speed * 0.7071067811865476
+
   public position = new THREE.Vector3(0, 0, 0)
   public velocity = new THREE.Vector3(0, 0, 0)
   public hitbox = new THREE.Box3(
@@ -29,6 +40,10 @@ export class Player {
   )
 
   private onground = false
+  private groundTime = 0
+  private airTime = 0
+  private spacePressTime = 1
+  private spacePressed = false
 
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene) {
     scene.add(this.playerObject)
@@ -77,31 +92,72 @@ export class Player {
 
     this.movePlayer(delta, inputs, blocks)
     this.playerObject.position.set(this.position.x, this.position.y, this.position.z)
-    this.camera.position.set(this.position.x, this.position.y + 0.8, this.position.z)
+    this.camera.position.set(
+      this.position.x + this.cameraPos.x + this.cameraShake.x,
+      this.position.y + this.cameraPos.y + this.cameraShake.y,
+      this.position.z + this.cameraPos.z + this.cameraShake.z
+    )
   }
 
   movePlayer(delta: number, inputs: any, blocks: THREE.Mesh[]) {
-    const speed = 1
-    const jumpStrength = 15
-    const gravity = 30
-    const friction = Math.pow(0.98, delta*400)
+    const friction = Math.pow(0.97, delta*500)
+    const airFric = Math.pow(0.9991, delta * 1000)
+    let forward = 0
+    let right = 0
+
+    let fb = 0
+    let lr = 0
 
     // move player
     if (inputs.get('w')) {
-      this.velocity.z -= speed
+      fb += 1
     }
     if (inputs.get('s')) {
-      this.velocity.z += speed
+      fb -= 1
     }
     if (inputs.get('a')) {
-      this.velocity.x -= speed
+      lr += 1
     }
     if (inputs.get('d')) {
-      this.velocity.x += speed
+      lr -= 1
     }
 
-    if (inputs.get(' ') && this.onground ) {
-      this.velocity.y = jumpStrength
+    if (this.onground) {
+      this.groundTime += delta
+      this.airTime = 0
+    } else {
+      this.groundTime = 0
+      this.airTime += delta
+    }
+
+    if (Math.abs(fb) + Math.abs(lr) > 1) {
+      // if the player is moving diagonally, multipy the speed by 0.7071
+      // this is the same as dividing by sqrt(2)
+      forward += fb * this.diagonalSpeed * (this.onground ? 1 : this.airControl)
+      right += lr * this.diagonalSpeed * (this.onground ? 1 : this.airControl)
+    } else {
+      forward += fb * this.speed * (this.onground ? 1 : this.airControl)
+      right += lr * this.speed * (this.onground ? 1 : this.airControl)
+    }
+
+    if (inputs.get(' ')) {
+      if (!this.spacePressed) {
+        this.spacePressTime = 0
+      }
+      this.spacePressed = true
+    } else {
+      this.spacePressTime += delta
+      this.spacePressed = false
+    }
+    console.log(this.spacePressTime)
+    
+    const jumpWindow = 0.02
+    const jumpRecharge = 0.02
+    if (this.spacePressTime <= jumpWindow && (this.groundTime < jumpWindow || this.groundTime > jumpRecharge)) {
+      if (this.onground) {
+        this.velocity.y = this.jumpStrength
+        this.spacePressTime += jumpWindow
+      }
     }
 
     // reset button
@@ -109,38 +165,58 @@ export class Player {
       this.resetPlayer()
     }
 
-    // apply friction
-    this.velocity.x *= friction
-    this.velocity.z *= friction
+    // add velocity
+    if (this.onground) {
+      this.velocity.x *= friction
+      this.velocity.z *= friction
+    } else {
+      this.velocity.x *= airFric
+      this.velocity.z *= airFric
+    }
+
+    const realSpeed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.z * this.velocity.z)
+    this.walkingTime += realSpeed * 0.008 * (this.onground ? 1 : 0)
+    const scale = 0.1
+    // smoothly shift cameraShake to cameraShakeTarget
+    this.cameraShake.set(
+      0,
+      Math.sin(this.walkingTime * 2) * scale,
+      0
+    )
 
     // apply x and z velocity
-    this.move(this.velocity.z * delta, this.velocity.x * delta, this.velocity.y * delta,  this.collisions)
+    this.addVelocity(this.collisions, right, forward)
+
+    let lastPosition = this.position.z
+    this.position.z += this.velocity.z * delta
+    this.checkCollisions(lastPosition, this.collisions, 'z')
+
+    lastPosition = this.position.x
+    this.position.x += this.velocity.x * delta
+    this.checkCollisions(lastPosition, this.collisions, 'x')
+
+    lastPosition = this.position.y
+    this.position.y += this.velocity.y * delta
+    this.checkCollisions(lastPosition, this.collisions, 'y')
 
     // apply gravity
-    this.velocity.y -= gravity * delta
+    this.velocity.y -= this.gravity * delta
   }
 
-  move(amountZ: number, amountX: number, amountY: number, blocks: THREE.Box3[]) {
+  addVelocity(blocks: THREE.Box3[], x: number, z: number) {
     // get camera direction
+    const { sin, cos } = this.getCameraRotation()
+    this.velocity.x += x * sin + z * cos
+    this.velocity.z += - x * cos + z * sin
+  }
+
+  getCameraRotation() {
     const vector = new THREE.Vector3()
     this.camera.getWorldDirection(vector)
     // get sine and cosine of camera rotation
     const sin = Math.sin(Math.atan2(vector.z, vector.x))
     const cos = Math.cos(Math.atan2(vector.z, vector.x))
-
-    let lastPosition = this.position.z
-    this.position.z += cos * amountX
-    this.position.z += sin * -amountZ
-    this.checkCollisions(lastPosition, blocks,'z')
-    
-    lastPosition = this.position.x
-    this.position.x -= sin * amountX
-    this.position.x += cos * -amountZ
-    this.checkCollisions(lastPosition, blocks, 'x')
-
-    lastPosition = this.position.y
-    this.position.y += amountY
-    this.checkCollisions(lastPosition, blocks, 'y')
+    return { sin, cos }
   }
 
   // cast a ray from each corner of the player's hitbox in each direction to see if it collides with a block
@@ -150,7 +226,6 @@ export class Player {
     const playerHitbox = this.hitbox.clone()
     playerHitbox.translate(this.position)
     const collisions = blocks.filter(block => playerHitbox.intersectsBox(block))
-    console.log(collisions)
     this.onground = false
     if (collisions.length > 0) {
       // if the player is moving in the y direction, set the velocity to 0
