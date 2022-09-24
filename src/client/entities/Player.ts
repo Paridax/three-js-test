@@ -18,8 +18,7 @@ export class Player {
   private static material: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({ color: 0xff00ff, transparent: true, opacity: 0, wireframe: true })
   
   public cameraPos = new THREE.Vector3(0, 0.8, 0)
-  private cameraShake = new THREE.Vector3(0, 0, 0)
-  private cameraShakeTarget = new THREE.Vector3(0, 0, 0)
+  public cameraShake = new THREE.Vector3(0, 0, 0)
   public walkingTime = 0
 
   private speed = 0.8
@@ -27,6 +26,9 @@ export class Player {
   private gravity = 15
   private airControl = 0.1
   private diagonalSpeed = this.speed * 0.7071067811865476
+  private lastPosition = new THREE.Vector3()
+  public lastRotation = new THREE.Euler()
+  public averageSpeed: number[] = []
 
   public realSpeed = 0
 
@@ -39,9 +41,11 @@ export class Player {
 
   public playerObject = new THREE.Mesh(
     new THREE.BoxGeometry(Player.width, Player.height, Player.width),
-    Player.material
+    // Player.material
   )
 
+  public leftRight = 0
+  public forwardBack = 0
   public onground = false
   private groundTime = 0
   private airTime = 0
@@ -55,6 +59,8 @@ export class Player {
     this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
     this.camera.position.set(0, 5, -5)
     this.playerObject.position.set(this.position.x, this.position.y, this.position.z)
+    this.lastPosition = this.position.clone()
+    this.lastRotation = this.camera.rotation.clone()
 
     this.controls = new PointerLockControls(this.camera, renderer.domElement)
     this.renderer = renderer
@@ -92,14 +98,15 @@ export class Player {
   // update run every frame
   // delta is the time in seconds since the last update e.g. 0.016
   update(delta: number, inputs: any, blocks: THREE.Mesh[]) {
-
+    
     this.movePlayer(delta, inputs, blocks)
     this.playerObject.position.set(this.position.x, this.position.y, this.position.z)
     this.camera.position.set(
       this.position.x + this.cameraPos.x + this.cameraShake.x,
-      this.position.y + this.cameraPos.y + this.cameraShake.y,
+      this.position.y + this.cameraPos.y, // + this.cameraShake.y,
       this.position.z + this.cameraPos.z + this.cameraShake.z
     )
+    this.lastRotation = this.camera.rotation.clone()
   }
 
   movePlayer(delta: number, inputs: any, blocks: THREE.Mesh[]) {
@@ -144,13 +151,18 @@ export class Player {
       // this is the same as dividing by sqrt(2)
       forward += fb * this.diagonalSpeed * (this.onground ? 1 : this.airControl)
       right += lr * this.diagonalSpeed * (this.onground ? 1 : this.airControl)
+      this.leftRight = right
+      this.forwardBack = forward
     } else {
       forward += fb * this.speed * (this.onground ? 1 : this.airControl)
       right += lr * this.speed * (this.onground ? 1 : this.airControl)
+      this.leftRight = right
+      this.forwardBack = forward
     }
 
+    // console.log(this.spacePressed)
     if (inputs.get(' ')) {
-      if (!this.spacePressed) {
+      if (this.spacePressed === false) {
         this.spacePressTime = 0
       }
       this.spacePressed = true
@@ -158,7 +170,7 @@ export class Player {
       this.spacePressTime += delta
       this.spacePressed = false
     }
-    console.log(this.spacePressTime)
+    // console.log(this.spacePressTime, this.spacePressed)
 
     const jumpWindow = 0.02
     const jumpRecharge = 0.1
@@ -179,9 +191,13 @@ export class Player {
       this.velocity.z *= airFric
     }
 
-    this.realSpeed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.z * this.velocity.z)
+    // difference in x and z since last frame
+    const dx = this.position.x - this.lastPosition.x
+    const dz = this.position.z - this.lastPosition.z
+    this.realSpeed = Math.sqrt(dx * dx + dz * dz) / delta
+    this.lastPosition = this.position.clone()
     // if the player stops moving, keep adding to walking time until math.sin(walkingTime) = 0
-    if (((!fb && !lr) || !this.onground)) {
+    if (((!fb && !lr) || !this.onground) && this.realSpeed < 0.5) {
       // find the next time that sin(walkingTime) = 0
       const nextWalkingStep = Math.ceil(this.walkingTime /Math.PI) * Math.PI
       const lastWalkingStep = Math.floor(this.walkingTime /Math.PI) * Math.PI
@@ -201,7 +217,7 @@ export class Player {
     // smoothly shift cameraShake to cameraShakeTarget
     this.cameraShake.set(
       0,
-      Math.sin(this.walkingTime * 2) * scale,
+      Math.sin(this.walkingTime) * scale,
       0
     )
 
@@ -220,8 +236,18 @@ export class Player {
     this.position.y += this.velocity.y * delta
     this.checkCollisions(lastPosition, this.collisions, 'y')
 
+    this.averageSpeed.push(this.realSpeed)
+    if (this.averageSpeed.length > 10) {
+      this.averageSpeed.shift()
+    }
+    console.log(this.averageSpeed.reduce((a, b) => a + b, 0) / this.averageSpeed.length)
+
     // apply gravity
-    this.velocity.y -= this.gravity * delta
+    if ( this.velocity.y < -30) {
+      this.velocity.y = -30
+    } else {
+      this.velocity.y -= this.gravity * delta
+    }
   }
 
   addVelocity(blocks: THREE.Box3[], x: number, z: number) {
@@ -261,8 +287,16 @@ export class Player {
     }
   }
 
+  getCameraDegrees() {
+    const vector = new THREE.Vector3()
+    this.camera.getWorldDirection(vector)
+
+    const degrees = Math.atan2(vector.z, vector.x) * 180 / Math.PI
+    return degrees
+  }
+
   public resetPlayer() {
-    this.setPosition(0, 5, 0)
+    this.setPosition(-50 + Math.random() * 100, 5, -50 + Math.random() * 100)
     this.velocity.set(0, 0, 0)
   }
 }
