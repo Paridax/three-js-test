@@ -28,7 +28,8 @@ export class Player {
   private diagonalSpeed = this.speed * 0.7071067811865476
   private lastPosition = new THREE.Vector3()
   public lastRotation = new THREE.Euler()
-  public averageSpeed: number[] = []
+  public averageSpeedArr: number[] = []
+  public averageSpeed = 0
 
   public realSpeed = 0
 
@@ -236,11 +237,11 @@ export class Player {
     this.position.y += this.velocity.y * delta
     this.checkCollisions(lastPosition, this.collisions, 'y')
 
-    this.averageSpeed.push(this.realSpeed)
-    if (this.averageSpeed.length > 10) {
-      this.averageSpeed.shift()
+    this.averageSpeedArr.push(this.realSpeed)
+    if (this.averageSpeedArr.length > 10) {
+      this.averageSpeedArr.shift()
     }
-    console.log(this.averageSpeed.reduce((a, b) => a + b, 0) / this.averageSpeed.length)
+    this.averageSpeed = this.averageSpeedArr.reduce((a, b) => a + b, 0) / 10
 
     // apply gravity
     if ( this.velocity.y < -30) {

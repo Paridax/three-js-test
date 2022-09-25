@@ -3,6 +3,7 @@ export class Global {
   private deltaTime = 0;
   private mspf: number[] = [];
   private averageMSPF = 0;
+  public clock = 0;
 
   private static mspfAverage = 20;
 
@@ -14,6 +15,7 @@ export class Global {
     if (this.mspf.length > Global.mspfAverage) {
       this.mspf.slice(0, Global.mspfAverage);
     }
+    this.clock += this.deltaTime / 1000;
     return this.deltaTime / 1000;
   }
 

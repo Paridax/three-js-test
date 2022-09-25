@@ -5,22 +5,23 @@ import { Player } from './entities/Player'
 import { InputManager } from './utils/InputManager'
 import { Global } from './utils/Global'
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader'
+import { Crosshair } from './entities/Crosshair'
 
 const scene = new THREE.Scene()
 const HUD = new THREE.Scene()
 // scene.add(new THREE.AxesHelper(5))
 const loader = new OBJLoader();
 // add hud camera
-const hudCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
+const hudCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.05, 1000)
 HUD.add(hudCamera)
 // add light to hud
 const hudlight = new THREE.PointLight(0xffffff, 1, 50)
 hudlight.position.set(-3, 4, 0)
 HUD.add(hudlight)
 
+const crosshair = new Crosshair(HUD);
+
 let gun: THREE.Mesh
-
-
 
 const renderer = new THREE.WebGLRenderer()
 renderer.setClearColor('#333333')
@@ -150,18 +151,33 @@ const render = function() {
     // scale gun 0.1
     gun.scale.set(0.2, 0.2, 0.2)
     gun.position.set(0.12 + gunPosOffset.x, -0.1 + gunPosOffset.y, -0.5 + gunPosOffset.z)
-    if (player.onground) {
-      gunPosOffset.y += (player.cameraShake.y * 1 - gunPosOffset.y ) * 1 * delta
-      gunPosOffset.x += (player.leftRight * 0.6 - gunPosOffset.x) * 0.5 * delta
-      gunPosOffset.z += (player.forwardBack * 0.6 - gunPosOffset.z) * 1 * delta
-    } else {
+    const breathing = Math.sin(global.clock * 1.5) * 0.0006
+    if (inputs.getMouse('right')) {
+      // console log difference between target and current offset
+      console.log(-0.12 - gunPosOffset.y)
+      gunPosOffset.y += (0.01 - gunPosOffset.y) * 12 * delta
+      gunPosOffset.y += (player.cameraShake.y * 1.3 - 0.01) * 1 * delta
       gunPosOffset.y += (player.velocity.y * -0.6 - gunPosOffset.y) * 0.1 * delta
-      gunPosOffset.x += (player.leftRight * 0.6 - gunPosOffset.x) * 2 * delta
-      gunPosOffset.z += (player.forwardBack * 0.6 - gunPosOffset.z) * 2 * delta
+      gunPosOffset.x += (-0.12 - gunPosOffset.x) * 12 * delta
+      gunPosOffset.x += (player.leftRight * 0.1) * 2 * delta
+      // gunPosOffset.z += (player.forwardBack * 0.6 - gunPosOffset.z) * 1 * delta
+      crosshair.distanceFromCenter += ((player.averageSpeed * 0.005) - crosshair.distanceFromCenter) * 12 * delta
+    } else {
+      gunPosOffset.y += breathing
+      if (player.onground) {
+        gunPosOffset.y += (player.cameraShake.y * 1.3 - gunPosOffset.y ) * 1 * delta
+        gunPosOffset.x += (player.leftRight * 3 - gunPosOffset.x) * 0.1 * delta
+        gunPosOffset.z += (player.forwardBack * 0.6 - gunPosOffset.z) * 1 * delta
+      } else {
+        gunPosOffset.y += (player.velocity.y * -0.6 - gunPosOffset.y) * 0.1 * delta
+        gunPosOffset.x += (player.leftRight * 0.6 - gunPosOffset.x) * 2 * delta
+        gunPosOffset.z += (player.forwardBack * -0.6 - gunPosOffset.z) * 2 * delta
+      }
+      gunPosOffset.y *= 0.9
+      gunPosOffset.x *= Math.pow(0.99, delta*1000)
+      gunPosOffset.z *= Math.pow(0.99, delta*1000)
     }
-    gunPosOffset.y *= 0.9
-    gunPosOffset.x *= Math.pow(0.99, delta*1000)
-    gunPosOffset.z *= Math.pow(0.99, delta*1000)
+    crosshair.distanceFromCenter += ((player.averageSpeed * 0.05 + 0.2) - crosshair.distanceFromCenter) * 12 * delta
   }
   player.update(delta, inputs, cubes)
   if (player.onground) {
@@ -182,6 +198,7 @@ const render = function() {
       soundPlayed = false
     }
   }
+  crosshair.update();
   light.position.set(player.position.x, player.position.y + 3, player.position.z)
   requestAnimationFrame(render)
   renderer.autoClear = true
