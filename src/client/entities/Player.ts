@@ -56,8 +56,9 @@ export class Player {
   public audioLoader = new THREE.AudioLoader();
 
   constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene) {
+    this.playerObject.castShadow = true
     scene.add(this.playerObject)
-    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
+    this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000)
     this.camera.position.set(0, 5, -5)
     this.playerObject.position.set(this.position.x, this.position.y, this.position.z)
     this.lastPosition = this.position.clone()

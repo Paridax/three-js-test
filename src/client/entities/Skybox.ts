@@ -14,7 +14,7 @@ export class Skybox {
   private skyMesh: THREE.Mesh
   
   constructor(scene: THREE.Scene) {
-    this.skybox = new THREE.BoxGeometry(10000, 10000, 10000)
+    this.skybox = new THREE.BoxGeometry(2000, 2000, 2000)
     this.skyMesh = new THREE.Mesh(this.skybox, [
       this.skyboxMaterials.front,
       this.skyboxMaterials.back,
