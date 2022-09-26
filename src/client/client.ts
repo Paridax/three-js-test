@@ -6,10 +6,12 @@ import { InputManager } from './utils/InputManager'
 import { Global } from './utils/Global'
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader'
 import { Crosshair } from './entities/Crosshair'
+import { Skybox } from './entities/Skybox'
 
 const scene = new THREE.Scene()
 const HUD = new THREE.Scene()
 // scene.add(new THREE.AxesHelper(5))
+
 const loader = new OBJLoader();
 // add hud camera
 const hudCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.05, 1000)
@@ -26,12 +28,14 @@ let gun: THREE.Mesh
 const renderer = new THREE.WebGLRenderer()
 renderer.setClearColor('#333333')
 renderer.setSize(window.innerWidth, window.innerHeight)
+renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement)
 
 const player = new Player(renderer, scene)
 player.setPosition(0, 5, 0)
 const inputs  = new InputManager()
 const global = new Global()
+const skybox = new Skybox(scene)
 
 window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight)
@@ -80,8 +84,8 @@ const material = new THREE.MeshStandardMaterial({
 })
 const plane = new THREE.Mesh(planeGeometry, material)
 plane.rotateX(-Math.PI / 2)
-plane.receiveShadow = true
 scene.add(plane)
+plane.receiveShadow = true
 const planeBox = new THREE.Box3().setFromObject(plane)
 player.collisions.push(planeBox)
 
@@ -97,33 +101,47 @@ for (let i = 0; i < 100; i++) {
     case 0:
       mat.map = prototypeRed
       break
-    case 1:
-      mat.map = prototypePurple
-      break
-  }
-  const cube = new THREE.Mesh(geo, mat)
-  cubes.push(cube)
+      case 1:
+        mat.map = prototypePurple
+        break
+      }
+      const cube = new THREE.Mesh(geo, mat)
+      cube.castShadow = true
+      cube.receiveShadow = true
+      cubes.push(cube)
 }
 cubes.forEach((c) => {
   c.position.x = Math.random() * 100 - 50
   c.position.z = Math.random() * 100 - 50
   c.geometry.computeBoundingBox()
   c.position.y =
-    ((c.geometry.boundingBox as THREE.Box3).max.y -
-      (c.geometry.boundingBox as THREE.Box3).min.y) /
-    2
-  c.castShadow = true
-  c.receiveShadow = true
+  ((c.geometry.boundingBox as THREE.Box3).max.y -
+  (c.geometry.boundingBox as THREE.Box3).min.y) /
+  2
   scene.add(c)
   // add the cube bounding box to the collisions array
   const cubeBox = new THREE.Box3().setFromObject(c)
   player.collisions.push(cubeBox)
 })
 
-// add light
-const light = new THREE.PointLight(0xffffff, 1, 100)
-light.position.set(0, 10, 0)
-scene.add(light)
+// add a sunlight
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0x000000, 0.4);
+hemiLight.position.set(-3, 4, 0)
+scene.add(hemiLight)
+
+const sunRays = new THREE.DirectionalLight(0xffffff, 1)
+sunRays.position.set(-50, 50, -50)
+sunRays.shadow.camera.left = -100
+sunRays.shadow.camera.right = 100
+sunRays.shadow.camera.top = 100
+sunRays.shadow.camera.bottom = -100
+// set shadow resolution
+sunRays.shadow.mapSize.width = 2048
+sunRays.shadow.mapSize.height = 2048
+// rotate sun rays
+sunRays.target.position.set(0, 0, 0)
+sunRays.castShadow = true
+scene.add(sunRays)
 
 const sound = new THREE.Audio(player.listener)
 const footstep = player.audioLoader.load('audio/step2.ogg', function (buffer) {
@@ -161,7 +179,7 @@ const render = function() {
       gunPosOffset.x += (-0.12 - gunPosOffset.x) * 12 * delta
       gunPosOffset.x += (player.leftRight * 0.1) * 2 * delta
       // gunPosOffset.z += (player.forwardBack * 0.6 - gunPosOffset.z) * 1 * delta
-      crosshair.distanceFromCenter += ((player.averageSpeed * 0.005) - crosshair.distanceFromCenter) * 12 * delta
+      crosshair.distanceFromCenter += ((player.averageSpeed * 0.002 + Math.abs(player.velocity.y) * 0.04) - crosshair.distanceFromCenter) * 12 * delta
     } else {
       gunPosOffset.y += breathing
       if (player.onground) {
@@ -177,7 +195,7 @@ const render = function() {
       gunPosOffset.x *= Math.pow(0.99, delta*1000)
       gunPosOffset.z *= Math.pow(0.99, delta*1000)
     }
-    crosshair.distanceFromCenter += ((player.averageSpeed * 0.05 + 0.2) - crosshair.distanceFromCenter) * 12 * delta
+    crosshair.distanceFromCenter += ((player.averageSpeed * 0.02 + 0.2 + Math.abs(player.velocity.y) * 0.04) - crosshair.distanceFromCenter) * 12 * delta
   }
   player.update(delta, inputs, cubes)
   if (player.onground) {
@@ -198,10 +216,11 @@ const render = function() {
       soundPlayed = false
     }
   }
+  skybox.update(player.camera.position)
   crosshair.update();
-  light.position.set(player.position.x, player.position.y + 3, player.position.z)
   requestAnimationFrame(render)
   renderer.autoClear = true
+  console.log(Math.round(global.fps()))
   renderer.render(scene, player.camera)
   renderer.autoClear = false
   renderer.render(HUD, hudCamera)
