@@ -5,7 +5,7 @@ export class Global {
   private averageMSPF = 0;
   public clock = 0;
 
-  private static mspfAverage = 20;
+  private static mspfAverage = 100;
 
   public delta() {
     const now = Date.now();
@@ -13,7 +13,7 @@ export class Global {
     this.now = now;
     this.mspf.push(this.deltaTime);
     if (this.mspf.length > Global.mspfAverage) {
-      this.mspf.slice(0, Global.mspfAverage);
+      this.mspf.shift();
     }
     this.clock += this.deltaTime / 1000;
     return this.deltaTime / 1000;
