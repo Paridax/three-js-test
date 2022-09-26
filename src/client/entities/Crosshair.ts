@@ -18,6 +18,10 @@ export class Crosshair {
     new THREE.BoxGeometry(1, 1, 0.01),
     new THREE.MeshBasicMaterial({ color: 0xffffff })
   )
+  public crosshair5 = new THREE.Mesh(
+    new THREE.BoxGeometry(1, 1, 0.01),
+    new THREE.MeshBasicMaterial({ color: 0xffffff })
+  )
 
   private HUD: THREE.Scene
 
@@ -38,6 +42,7 @@ export class Crosshair {
     this.HUD.add(this.crosshair2)
     this.HUD.add(this.crosshair3)
     this.HUD.add(this.crosshair4)
+    this.HUD.add(this.crosshair5)
 
     this.update()
   }
@@ -48,10 +53,12 @@ export class Crosshair {
     this.crosshair2.position.set(0, -this.distanceFromCenter * this.scale, -0.1)
     this.crosshair3.position.set(this.distanceFromCenter * this.scale, 0, -0.1)
     this.crosshair4.position.set(-this.distanceFromCenter * this.scale, 0, -0.1)
+    this.crosshair5.position.set(0, 0, -0.1)
 
     this.crosshair.scale.set(this.scale * this.width, this.scale * this.height, this.scale)
     this.crosshair2.scale.set(this.scale * this.width, this.scale * this.height, this.scale)
     this.crosshair3.scale.set(this.scale * this.width, this.scale * this.height, this.scale)
     this.crosshair4.scale.set(this.scale * this.width, this.scale * this.height, this.scale)
+    this.crosshair5.scale.set(this.scale * this.width, this.scale * this.width, this.scale)
   }
 }
